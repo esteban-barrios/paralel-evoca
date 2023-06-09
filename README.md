@@ -1,1 +1,1 @@
-# paralel-evoca
+# Parallel EVOCA Implementation
