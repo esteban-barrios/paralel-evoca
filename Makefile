@@ -4,7 +4,7 @@ semilla=123
 prog=pevoca
 archivo_configuracion=conf-AK.config
 directorio=instancias
-ejecutable=AKsh.sh
+ejecutable=AK_OSX.sh
 NSeeds=3
 MaxTime=0
 Min=0 #1=minimizar, 0=maximizar

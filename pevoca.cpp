@@ -9,12 +9,12 @@
 #include <list>
 #include <string.h>
 #include <algorithm>
-#include <semaphore.h>
+//#include <semaphore.h>
+#include <dispatch/dispatch.h>
 #include <limits.h>
 #include <queue>
 
 using namespace std;
-
 
 // Structs para EVOCA
 
@@ -56,6 +56,11 @@ class tpoblacion{
   friend ostream& operator<<(ostream &, const tpoblacion &);
 };
 
+// type of chrono lib
+typedef std::chrono::time_point<std::chrono::high_resolution_clock>  TimePoint;
+typedef std::chrono::microseconds Mcs;
+typedef std::chrono::duration<float> Fsec;
+
 // Parametros globales EVOCA
 int CantEvalsDiscardedMut = 0;
 int CantEvalsCrossBad = 0;
@@ -69,7 +74,8 @@ int max_decimales;
 int **valores_parametros;
 conjunto poblacion, poblacion_intermedia;
 int CIT;
-chrono::time_point global_start = chrono::high_resolution_clock::now(), global_end = chrono::high_resolution_clock::now();
+TimePoint global_start = chrono::high_resolution_clock::now();
+TimePoint global_end = chrono::high_resolution_clock::now();
 
 // Parametros entregados como argumento
 char* algoritmoObjetivo;      // ejecutable (sh) del algoritmo objetivo
@@ -215,7 +221,7 @@ void salir(void)
   cout << "Configuraciones descartadas por Cruzamiento -->" << tot << endl;
 
   global_end = chrono::high_resolution_clock::now();
-  auto dur = chrono::duration_cast<chrono::microseconds>(global_end - global_start); // calcular la duración en microsegundos
+  Mcs dur= chrono::duration_cast<chrono::microseconds>(global_end - global_start); // calcular la duración en microsegundos
   double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
   cout << "Tiempo de Total de Ejecucion: " << dur_sec << " segundos" << endl;
   exit(0);
@@ -232,10 +238,6 @@ int numCore = 4;
 // variables para crear hebras
 int numWorkers = numCore -1 ;         
 
-// Definimos un semáforo global
-sem_t semaforo;
-
-
 // Struct para pasar valores diferentes a las hebras
 struct parametrosHebra {
     calibracion *cal_temp;
@@ -244,9 +246,12 @@ struct parametrosHebra {
     int i;
 };
   
+// Definimos un semáforo global
+dispatch_semaphore_t semaforo;
+
 // Def para work-queue
-sem_t queue_sem;
-sem_t task_sem;
+dispatch_semaphore_t queue_sem;
+dispatch_semaphore_t task_sem;
 bool all_tasks_processed = false;
 queue<parametrosHebra> work_queue;
 
@@ -254,15 +259,15 @@ queue<parametrosHebra> work_queue;
 void* hebra_calcular_aptitud_semilla_instancia(void* arg) {
   while (true) {
     // Esperar a que haya tareas en la cola
-    sem_wait(&queue_sem);
+    dispatch_semaphore_wait(queue_sem, DISPATCH_TIME_FOREVER);
 
     // Bloquear el semáforo para acceso exclusivo a la cola de trabajo
-    sem_wait(&task_sem);
+    dispatch_semaphore_wait(task_sem, DISPATCH_TIME_FOREVER);
 
     // Comprobar si todas las tareas han sido procesadas
     if (all_tasks_processed && work_queue.empty()) {
         // Desbloquear el semáforo y salir del bucle
-        sem_post(&task_sem);
+        dispatch_semaphore_signal(task_sem);
         break;
     }
 
@@ -271,10 +276,10 @@ void* hebra_calcular_aptitud_semilla_instancia(void* arg) {
     work_queue.pop();
 
     // Desbloquear el semáforo
-    sem_post(&task_sem);
+    dispatch_semaphore_signal(task_sem);
 
     // Realizar la tarea
-    auto start = chrono::high_resolution_clock::now();
+    TimePoint start = chrono::high_resolution_clock::now();
 
     calibracion *cal_temp = task.cal_temp;
     const char *instancia = task.ins;
@@ -292,21 +297,32 @@ void* hebra_calcular_aptitud_semilla_instancia(void* arg) {
     char comando[1024];
     char comando2[1024];
     float aptitud;
-
-    //for(int i=0; i< cantidad_parametros; i++)
-      //cout<<cal_temp->parametro[i]<<" ";
-    //cout<<endl;
     
-    sprintf(comando, "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
-    for(int i=0; i<cantidad_parametros; i++)
-    {
-      if(configuracion_parametros[i].decimales>1)
-        sprintf(comando2," -%s %.4f", configuracion_parametros[i].nombre,(cal_temp->parametro[i]/((float)configuracion_parametros[i].decimales)));
-      else
-        sprintf(comando2," -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
-      strcat(comando, comando2);
+    // sprintf(comando, "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
+    // for(int i=0; i<cantidad_parametros; i++)
+    // {
+    //   if(configuracion_parametros[i].decimales>1)
+    //     sprintf(comando2," -%s %.4f", configuracion_parametros[i].nombre,(cal_temp->parametro[i]/((float)configuracion_parametros[i].decimales)));
+    //   else
+    //     sprintf(comando2," -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
+    //   strcat(comando, comando2);
+    // }
+    // printf("%s\n", comando);
+
+    snprintf(comando, sizeof(comando), "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
+    
+    for (int i = 0; i < cantidad_parametros; i++) {
+        if (configuracion_parametros[i].decimales > 1)
+            snprintf(comando2, sizeof(comando2), " -%s %.4f", configuracion_parametros[i].nombre, (cal_temp->parametro[i] / ((float)configuracion_parametros[i].decimales)));
+        else
+            snprintf(comando2, sizeof(comando2), " -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
+        
+        strncat(comando, comando2, sizeof(comando) - strlen(comando) - 1);
     }
+    
     printf("%s\n", comando);
+    system(comando);
+
     system(comando);
     resultados.open(archivo_resultados);
     resultados>>aptitud;
@@ -317,9 +333,9 @@ void* hebra_calcular_aptitud_semilla_instancia(void* arg) {
     printf("Aptitud de (%d): %2f \n", s, aptitud);
 
     // Seccion critica
-    sem_wait(&semaforo);  // bloqueamos
+    dispatch_semaphore_wait(semaforo, DISPATCH_TIME_FOREVER); // bloqueamos
     cal_temp->aptitud_promedio = (cal_temp-> aptitud_promedio + aptitud);
-    sem_post(&semaforo);  // liberamos
+    dispatch_semaphore_signal(semaforo);  // liberamos
 
     //cal_temp->c_instancias_semillas++;
     printf("Aptitud Total: %2f (%d)\n", (cal_temp->aptitud_promedio), (s));
@@ -327,8 +343,8 @@ void* hebra_calcular_aptitud_semilla_instancia(void* arg) {
     E++;
     cout<<"-->Van "<< E <<" evaluaciones ("<< T <<" segundos)"<<endl;
 
-    auto end1 = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-    auto dur1 = chrono::duration_cast<chrono::microseconds>(end1 - start); // calcular la duración en microsegundos
+    TimePoint end1 = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
+    Mcs dur1 = chrono::duration_cast<chrono::microseconds>(end1 - start); // calcular la duración en microsegundos
     double dur_sec1 = static_cast<double>(dur1.count()) / 1000000.0; // calcular la duración en segundos
     cout << "Tiempo de ejecución individual en par: " << dur_sec1 << " segundos" << "(" << s << ")"<<endl;
 
@@ -355,13 +371,13 @@ void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
   pthread_t hebras[numWorkers];  
   all_tasks_processed = false;
   // Tomar el tiempo de inicio
-  auto start = chrono::high_resolution_clock::now();
+  TimePoint start = chrono::high_resolution_clock::now();
   cout << "-----Se inicia iteracion de semillas------" << endl; 
 
   // Inicializar los semáforos
-  sem_init(&queue_sem, 0, 0);
-  sem_init(&task_sem, 0, 1);
-  sem_init(&semaforo, 0, 1);   // Para seccion critica 
+  queue_sem = dispatch_semaphore_create(0); // init with value of 0
+  task_sem = dispatch_semaphore_create(1); // init with value of 1
+  semaforo = dispatch_semaphore_create(1); // init with value of 1
 
   // Crear los hilos
   for (int i = 0; i < numWorkers; i++) {
@@ -384,15 +400,15 @@ void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
       argumento.i = i;
 
       // Bloquear el semáforo para acceso exclusivo a la cola de trabajo
-      sem_wait(&task_sem);
+      dispatch_semaphore_wait(task_sem, DISPATCH_TIME_FOREVER);
 
       work_queue.push(argumento);
 
       // Desbloquear el semáforo
-      sem_post(&task_sem);
+      dispatch_semaphore_signal(task_sem);
 
       // Desbloquear el semáforo para indicar la disponibilidad de tareas
-      sem_post(&queue_sem);
+      dispatch_semaphore_signal(queue_sem);
     }
 
     // Indicar que todas las tareas han sido procesadas
@@ -400,7 +416,7 @@ void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
 
     // Desbloquear el semáforo para que los hilos verifiquen si todas las tareas han sido procesadas
     for (int i = 0; i < numWorkers; i++) {
-        sem_post(&queue_sem);
+        dispatch_semaphore_signal(queue_sem);
     }
 
     // Esperar a que las hebras terminen
@@ -410,14 +426,14 @@ void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
 
     cal_temp->aptitud_promedio = cal_temp->aptitud_promedio/NumSeeds;
     // Destruir los semáforos
-    sem_destroy(&queue_sem);
-    sem_destroy(&task_sem);
-    sem_destroy(&semaforo);
+    dispatch_release(queue_sem);
+    dispatch_release(task_sem);
+    dispatch_release(semaforo);
     cout << "-----Todas las tareas han sido procesadas.-----" << endl;
 
 
-    auto end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-    auto dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
+    TimePoint end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
+    Mcs dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
     double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
 
     cout << "Tiempo de ejecución para calcular aptitud en paralelo: " << dur_sec << " segundos" << endl;
@@ -438,22 +454,22 @@ void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
       argumento.i = j;
 
       // Bloquear el semáforo para acceso exclusivo a la cola de trabajo
-      sem_wait(&task_sem);
+      dispatch_semaphore_wait(task_sem, DISPATCH_TIME_FOREVER);
 
       work_queue.push(argumento);
 
       // Desbloquear el semáforo
-      sem_post(&task_sem);
+      dispatch_semaphore_signal(task_sem);
 
       // Desbloquear el semáforo para indicar la disponibilidad de tareas
-      sem_post(&queue_sem);
+      dispatch_semaphore_signal(queue_sem);
     }
     // Indicar que todas las tareas han sido procesadas
     all_tasks_processed = true;
 
     // Aumentar el semáforo para que los hilos verifiquen si todas las tareas han sido procesadas
     for (int i = 0; i < numWorkers; i++) {
-        sem_post(&queue_sem);
+        dispatch_semaphore_signal(queue_sem);
     }
 
     // Esperar a que los hilos terminen
@@ -462,13 +478,13 @@ void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
     }
     cal_temp->aptitud_promedio = cal_temp->aptitud_promedio/NumSeeds;
     // Destruir los semáforos
-    sem_destroy(&queue_sem);
-    sem_destroy(&task_sem);
-    sem_destroy(&semaforo);
+    dispatch_release(queue_sem);
+    dispatch_release(task_sem);
+    dispatch_release(semaforo);
     cout << "-----Todas las tareas han sido procesadas.-----" << endl;
 
-    auto end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-    auto dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
+    TimePoint end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
+    Mcs dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
     double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
 
     cout << "Tiempo de ejecución para calcular aptitud en paralelo: " << dur_sec << " segundos" << endl;
@@ -575,20 +591,37 @@ void calcular_aptitud_semilla_instancia(calibracion *cal_temp, const char* insta
   //cout<<endl;
 
   fflush(stdout);
-  sprintf(comando, "rm -rf %s", archivo_resultados);
+  //sprintf(comando, "rm -rf %s", archivo_resultados);
+  snprintf(comando, sizeof(comando), "rm -rf %s", archivo_resultados);
   system(comando);
 
-  sprintf(comando, "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
-  for(int i=0; i<cantidad_parametros; i++)
-  {
-    if(configuracion_parametros[i].decimales>1)
-      sprintf(comando2," -%s %.4f", configuracion_parametros[i].nombre,(cal_temp->parametro[i]/((float)configuracion_parametros[i].decimales)));
-    else
-      sprintf(comando2," -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
-    strcat(comando, comando2);
+  // sprintf(comando, "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
+  // for(int i=0; i<cantidad_parametros; i++)
+  // {
+  //   if(configuracion_parametros[i].decimales>1)
+  //     sprintf(comando2," -%s %.4f", configuracion_parametros[i].nombre,(cal_temp->parametro[i]/((float)configuracion_parametros[i].decimales)));
+  //   else
+  //     sprintf(comando2," -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
+  //   strcat(comando, comando2);
+  // }
+
+  // printf("%s\n", comando);
+  // system(comando);
+
+  snprintf(comando, sizeof(comando), "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
+  
+  for (int i = 0; i < cantidad_parametros; i++) {
+      if (configuracion_parametros[i].decimales > 1)
+          snprintf(comando2, sizeof(comando2), " -%s %.4f", configuracion_parametros[i].nombre, (cal_temp->parametro[i] / ((float)configuracion_parametros[i].decimales)));
+      else
+          snprintf(comando2, sizeof(comando2), " -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
+      
+      strncat(comando, comando2, sizeof(comando) - strlen(comando) - 1);
   }
+  
   printf("%s\n", comando);
   system(comando);
+  
   resultados.open(archivo_resultados);
   resultados>>aptitud;
   resultados.close();
@@ -624,7 +657,7 @@ void calcular_aptitud_calibracion(calibracion *cal_temp)
   }
   else{
     // Tomar el tiempo de inicio
-    auto start = chrono::high_resolution_clock::now();
+    TimePoint start = chrono::high_resolution_clock::now();
     cout << "Se inicia iteracion de semillas" << endl; 
     for(int i=0; i<NumSeeds; i++)
     {
@@ -632,15 +665,15 @@ void calcular_aptitud_calibracion(calibracion *cal_temp)
       //cout<<"is: "<<is<<endl;
       int sem=lista_semillas_instancias[is].seed;
       const char *ins = lista_semillas_instancias[is].instance.c_str();
-      auto start1 = chrono::high_resolution_clock::now();
+      TimePoint start1 = chrono::high_resolution_clock::now();
       calcular_aptitud_semilla_instancia(cal_temp, ins, sem, i);
-      auto end1 = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-      auto dur1 = chrono::duration_cast<chrono::microseconds>(end1 - start1); // calcular la duración en microsegundos
+      TimePoint end1 = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
+      Mcs dur1 = chrono::duration_cast<chrono::microseconds>(end1 - start1); // calcular la duración en microsegundos
       double dur_sec1 = static_cast<double>(dur1.count()) / 1000000.0; // calcular la duración en segundos
       cout << "Tiempo de ejecución individual en sec: " << dur_sec1 << " segundos" << endl;
     }
-    auto end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-    auto dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
+    TimePoint end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
+    Mcs dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
     double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
 
     cout << "Tiempo de ejecución para calcular aptitud en sec: " << dur_sec << " segundos" << endl;
@@ -649,7 +682,6 @@ void calcular_aptitud_calibracion(calibracion *cal_temp)
   }
 }
 
-// TODO: ver si se puede paralelizar
 void calcular_aptitud_conjunto_inicial(conjunto *co){
   for (vector < calibracion >::iterator ca=co->cjto.begin (); ca != co->cjto.end (); ++ca){
     calcular_aptitud_calibracion(&*ca);
@@ -802,7 +834,7 @@ void agregar_calibracion_cruzada_y_calibracion_mutada(conjunto * co)
   return;
 }
 
-//180119
+
 bool existe_archivo(const char *fileName){
     ifstream infile(fileName);
     return infile.good();
@@ -869,7 +901,7 @@ void crear_conjunto_inicial(conjunto *co, int tamano){
   int candidatas;
   //180119
   //Verificar archivo de configuraciones candidatas
-  if(existe_archivo(archivo_candidatas)){
+  if( existe_archivo(archivo_candidatas )){
         cout << "Leyendo configuraciones candidatas" << endl;
         candidatas=leer_archivo_candidatas(co, tamano);
   }  
