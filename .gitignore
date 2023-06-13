@@ -35,4 +35,4 @@
 .vscode 
 
 # Text files
-.txt
+*.txt
