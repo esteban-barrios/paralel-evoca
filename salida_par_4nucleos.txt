@@ -1,0 +1,243 @@
+./pevoca AK_OSX.sh conf-AK.config instancias 123 3 10 20 0 1  candidatas.config 1  4
+------------------------------------------------------------------------
+---------------------------- INICIALIZACION ----------------------------
+------------------------------------------------------------------------
+5
+nombre leido: TotalAnts
+lim_min: 2
+lim_max: 50
+decimales: 1
+nombre leido: alpha
+lim_min: 1
+lim_max: 200
+decimales: 10
+nombre leido: beta
+lim_min: 1
+lim_max: 200
+decimales: 10
+nombre leido: ph_max
+lim_min: 1
+lim_max: 300
+decimales: 10
+nombre leido: rho
+lim_min: 1
+lim_max: 1000
+decimales: 1000
+leer_archivo_configuracion done!
+calcular_M done!
+Agregando semilla/instancia: 0
+Agregando semilla/instancia: 1
+Agregando semilla/instancia: 2
+Agregando semilla/instancia: 3
+Agregando semilla/instancia: 4
+Agregando semilla/instancia: 5
+Agregando semilla/instancia: 6
+Agregando semilla/instancia: 7
+Agregando semilla/instancia: 8
+Agregando semilla/instancia: 9
+Agregando semilla/instancia: 10
+Agregando semilla/instancia: 11
+Agregando semilla/instancia: 12
+Agregando semilla/instancia: 13
+Agregando semilla/instancia: 14
+Agregando semilla/instancia: 15
+Agregando semilla/instancia: 16
+Agregando semilla/instancia: 17
+Agregando semilla/instancia: 18
+Agregando semilla/instancia: 19
+Leyendo configuraciones candidatas
+Hay 0 soluciones candidatas en el archivo.
+leer_archivo_candidatas done!
+Parametro: 0, necesita mas valores que 10
+50 2 6 10 14 18 22 26 30 34 
+Parametro: 1, necesita mas valores que 10
+20000 100 2100 4100 6100 8100 10100 12100 14100 16100 
+Parametro: 2, necesita mas valores que 10
+20000 100 2100 4100 6100 8100 10100 12100 14100 16100 
+Parametro: 3, necesita mas valores que 10
+30000 100 3100 6100 9100 12100 15100 18100 21100 24100 
+Parametro: 4, necesita mas valores que 10
+1000 1 101 201 301 401 501 601 701 801 
+
+--------------Conjunto 1 (10)-----------------------
+[0x124606f50] ( 30 10100 16100 6100 1000 ) [0]
+[0x124606f70] ( 18 4100 6100 18100 301 ) [0]
+[0x124606f90] ( 2 8100 100 24100 801 ) [0]
+[0x124606fb0] ( 14 100 8100 12100 701 ) [0]
+[0x124606fd0] ( 34 20000 4100 3100 1 ) [0]
+[0x124606ff0] ( 10 14100 2100 30000 401 ) [0]
+[0x124607010] ( 50 2100 14100 100 501 ) [0]
+[0x124607030] ( 26 6100 10100 15100 601 ) [0]
+[0x124607050] ( 6 12100 12100 9100 101 ) [0]
+[0x124607070] ( 22 16100 20000 21100 201 ) [0]
+
+-----Se inicia iteracion de semillas------
+bash AK_OSX.sh ./instances/gk01.dat resultados_0.res 3666 -TotalAnts 30 -alpha 10.1000 -beta 16.1000 -ph_max 6.1000 -rho 1.0000
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_2.res 8339 -TotalAnts 30 -alpha 10.1000 -beta 16.1000 -ph_max 6.1000 -rho 1.0000
+bash AK_OSX.sh ./instances/gk01.dat resultados_1.res 3941 -TotalAnts 30 -alpha 10.1000 -beta 16.1000 -ph_max 6.1000 -rho 1.0000
+se ejecuto comando bash 
+Aptitud de (1): 3.770580 
+Aptitud Total: 3.770580 (1)
+-->Van 1 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(1): 0.336947 segundos
+se ejecuto comando bash 
+Aptitud de (0): 3.956450 
+Aptitud Total: 7.727030 (0)
+-->Van 2 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(0): 0.337764 segundos
+se ejecuto comando bash 
+Aptitud de (2): 24.927999 
+Aptitud Total: 32.655029 (2)
+-->Van 3 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(2): 14.1738 segundos
+-----Todas las tareas han sido procesadas.-----
+Tiempo de ejecución para calcular aptitud en paralelo: 14.1738 segundos
+Aptitud final: 10.885
+
+
+-----Se inicia iteracion de semillas------
+bash AK_OSX.sh ./instances/gk01.dat resultados_0.res 1195 -TotalAnts 18 -alpha 4.1000 -beta 6.1000 -ph_max 18.1000 -rho 0.3010
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_1.res 9355 -TotalAnts 18 -alpha 4.1000 -beta 6.1000 -ph_max 18.1000 -rho 0.3010
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_2.res 1500 -TotalAnts 18 -alpha 4.1000 -beta 6.1000 -ph_max 18.1000 -rho 0.3010
+se ejecuto comando bash 
+Aptitud de (0): 1.486990 
+Aptitud Total: 1.486990 (0)
+-->Van 4 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(0): 0.356497 segundos
+se ejecuto comando bash 
+Aptitud de (1): 0.770606 
+Aptitud Total: 2.257596 (1)
+-->Van 5 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(1): 17.498 segundos
+se ejecuto comando bash 
+Aptitud de (2): 0.950246 
+Aptitud Total: 3.207842 (2)
+-->Van 6 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(2): 17.6473 segundos
+-----Todas las tareas han sido procesadas.-----
+Tiempo de ejecución para calcular aptitud en paralelo: 17.6473 segundos
+Aptitud final: 1.06928
+
+
+-----Se inicia iteracion de semillas------
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_0.res 9355 -TotalAnts 2 -alpha 8.1000 -beta 0.1000 -ph_max 24.1000 -rho 0.8010
+bash AK_OSX.sh ./instances/OR10x500-0.25_8.dat resultados_1.res 8519 -TotalAnts 2 -alpha 8.1000 -beta 0.1000 -ph_max 24.1000 -rho 0.8010
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_2.res 9855 -TotalAnts 2 -alpha 8.1000 -beta 0.1000 -ph_max 24.1000 -rho 0.8010
+se ejecuto comando bash 
+Aptitud de (1): 16.873699 
+Aptitud Total: 16.873699 (1)
+-->Van 7 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(1): 15.254 segundos
+se ejecuto comando bash 
+Aptitud de (0): 15.619500 
+Aptitud Total: 32.493198 (0)
+-->Van 8 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(0): 15.3805 segundos
+se ejecuto comando bash 
+Aptitud de (2): 15.644600 
+Aptitud Total: 48.137798 (2)
+-->Van 9 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(2): 15.4106 segundos
+-----Todas las tareas han sido procesadas.-----
+Tiempo de ejecución para calcular aptitud en paralelo: 15.4106 segundos
+Aptitud final: 16.0459
+
+
+-----Se inicia iteracion de semillas------
+bash AK_OSX.sh ./instances/gk01.dat resultados_0.res 1195 -TotalAnts 14 -alpha 0.1000 -beta 8.1000 -ph_max 12.1000 -rho 0.7010
+bash AK_OSX.sh ./instances/gk01.dat resultados_1.res 3666 -TotalAnts 14 -alpha 0.1000 -beta 8.1000 -ph_max 12.1000 -rho 0.7010
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_2.res 8339 -TotalAnts 14 -alpha 0.1000 -beta 8.1000 -ph_max 12.1000 -rho 0.7010
+se ejecuto comando bash 
+Aptitud de (0): 2.655340 
+Aptitud Total: 2.655340 (0)
+-->Van 10 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(0): 0.353182 segundos
+se ejecuto comando bash 
+Aptitud de (1): 2.894320 
+Aptitud Total: 5.549660 (1)
+-->Van 11 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(1): 0.354867 segundos
+se ejecuto comando bash 
+Aptitud de (2): 3.167210 
+Aptitud Total: 8.716869 (2)
+-->Van 12 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(2): 16.7968 segundos
+-----Todas las tareas han sido procesadas.-----
+Tiempo de ejecución para calcular aptitud en paralelo: 16.7969 segundos
+Aptitud final: 2.90562
+
+
+-----Se inicia iteracion de semillas------
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_0.res 1500 -TotalAnts 34 -alpha 20.0000 -beta 4.1000 -ph_max 3.1000 -rho 0.0010
+bash AK_OSX.sh ./instances/OR30x500-0.25_3.dat resultados_1.res 5497 -TotalAnts 34 -alpha 20.0000 -beta 4.1000 -ph_max 3.1000 -rho 0.0010
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_2.res 9855 -TotalAnts 34 -alpha 20.0000 -beta 4.1000 -ph_max 3.1000 -rho 0.0010
+se ejecuto comando bash 
+Aptitud de (2): 24.224600 
+Aptitud Total: 24.224600 (2)
+-->Van 13 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(2): 16.0561 segundos
+se ejecuto comando bash 
+Aptitud de (0): 24.024799 
+Aptitud Total: 48.249397 (0)
+-->Van 14 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(0): 16.0598 segundos
+se ejecuto comando bash 
+Aptitud de (1): 21.394400 
+Aptitud Total: 69.643799 (1)
+-->Van 15 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(1): 16.1407 segundos
+-----Todas las tareas han sido procesadas.-----
+Tiempo de ejecución para calcular aptitud en paralelo: 16.1408 segundos
+Aptitud final: 23.2146
+
+
+-----Se inicia iteracion de semillas------
+bash AK_OSX.sh ./instances/gk01.dat resultados_0.res 1295 -TotalAnts 10 -alpha 14.1000 -beta 2.1000 -ph_max 30.0000 -rho 0.4010
+bash AK_OSX.sh ./instances/OR5x500-0.25_7.dat resultados_1.res 1500 -TotalAnts 10 -alpha 14.1000 -beta 2.1000 -ph_max 30.0000 -rho 0.4010
+bash AK_OSX.sh ./instances/gk01.dat resultados_2.res 1295 -TotalAnts 10 -alpha 14.1000 -beta 2.1000 -ph_max 30.0000 -rho 0.4010
+se ejecuto comando bash 
+Aptitud de (0): 2.389800 
+Aptitud Total: 2.389800 (0)
+-->Van 16 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(0): 0.354948 segundos
+se ejecuto comando bash 
+Aptitud de (2): 2.389800 
+Aptitud Total: 4.779600 (2)
+-->Van 17 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(2): 0.358762 segundos
+se ejecuto comando bash 
+Aptitud de (1): 7.409740 
+Aptitud Total: 12.189341 (1)
+-->Van 18 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(1): 17.1461 segundos
+-----Todas las tareas han sido procesadas.-----
+Tiempo de ejecución para calcular aptitud en paralelo: 17.1461 segundos
+Aptitud final: 4.06311
+
+
+-----Se inicia iteracion de semillas------
+bash AK_OSX.sh ./instances/gk01.dat resultados_1.res 5263 -TotalAnts 50 -alpha 2.1000 -beta 14.1000 -ph_max 0.1000 -rho 0.5010
+bash AK_OSX.sh ./instances/gk01.dat resultados_0.res 1295 -TotalAnts 50 -alpha 2.1000 -beta 14.1000 -ph_max 0.1000 -rho 0.5010
+bash AK_OSX.sh ./instances/gk01.dat resultados_2.res 1195 -TotalAnts 50 -alpha 2.1000 -beta 14.1000 -ph_max 0.1000 -rho 0.5010
+se ejecuto comando bash 
+Aptitud de (1): 0.929368 
+Aptitud Total: 0.929368 (1)
+-->Van 19 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(1): 0.363573 segundos
+se ejecuto comando bash 
+Aptitud de (0): 0.663834 
+Aptitud Total: 1.593202 (0)
+-->Van 20 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(0): 0.363943 segundos
+se ejecuto comando bash 
+Aptitud de (2): 0.716941 
+Aptitud Total: 2.310143 (2)
+-->Van 21 evaluaciones (0 segundos)
+Tiempo de ejecución individual en par(2): 0.364162 segundos
+MAX_EVAL!: 21
+Archivo_parametros: EVOCA.params
+Evaluaciones Perdidas por Mutaciones -->0
+Configuraciones descartadas por Mutacion -->0
+Evaluaciones Perdidas por Cruzamiento -->0
+Configuraciones descartadas por Cruzamiento -->0
+Tiempo de Total de Ejecucion: 97.681 segundos

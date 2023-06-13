@@ -1,5 +1,5 @@
 MaxM=10
-MaxEval=1000
+MaxEval=20
 semilla=123
 prog=pevoca
 archivo_configuracion=conf-AK.config
@@ -7,8 +7,9 @@ directorio=instancias
 ejecutable=AK_OSX.sh
 NSeeds=3
 MaxTime=0
-Min=0 #1=minimizar, 0=maximizar
+Min=1 #1=minimizar, 0=maximizar
 isParallel = 1 # 1=paralelo | 0= secuencial
+NumCores= 8
 archivo_candidatas=candidatas.config
 
 $(prog): 
@@ -22,4 +23,4 @@ clean:
 	rm -f *.conv
 
 exe:$(prog)
-	./$(prog) $(ejecutable) $(archivo_configuracion) $(directorio) $(semilla) $(NSeeds) $(MaxM) $(MaxEval) $(MaxTime) $(Min) $(archivo_candidatas) $(isParallel)
+	./$(prog) $(ejecutable) $(archivo_configuracion) $(directorio) $(semilla) $(NSeeds) $(MaxM) $(MaxEval) $(MaxTime) $(Min) $(archivo_candidatas) $(isParallel) $(NumCores)

@@ -10,9 +10,11 @@
 #include <string.h>
 #include <algorithm>
 //#include <semaphore.h>
-#include <dispatch/dispatch.h>
+//#include <dispatch/dispatch.h>
 #include <limits.h>
 #include <queue>
+//#include <sys/wait.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -232,11 +234,37 @@ void salir(void)
 /*-----------------------------------------------------------------*/
 //Funciones evoca paralelo
 
+int system_bash(const char* command) {
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        std::cerr << "Error al crear el proceso hijo." << std::endl;
+        return -1;
+    }
+
+    if (pid == 0) {
+        // Proceso hijo
+        execl("/bin/bash", "bash", "-c", command, NULL);
+        exit(EXIT_FAILURE);
+    } else {
+        // Proceso padre
+        int status;
+        waitpid(pid, &status, 0);
+
+        if (WIFEXITED(status)) {
+            int exitStatus = WEXITSTATUS(status);
+            return exitStatus;
+        } else {
+            std::cerr << "El comando no se ejecutó correctamente." << std::endl;
+            return -1;
+        }
+    }
+}
 
 // Parametro para indicar el número de hebras que se pueden ejecutar en paralelo
-int numCore = 4; 
+int numCore; //default 
 // variables para crear hebras
-int numWorkers = numCore -1 ;         
+int numWorkers;         
 
 // Struct para pasar valores diferentes a las hebras
 struct parametrosHebra {
@@ -245,251 +273,193 @@ struct parametrosHebra {
     int sem;
     int i;
 };
-  
-// Definimos un semáforo global
-dispatch_semaphore_t semaforo;
 
-// Def para work-queue
-dispatch_semaphore_t queue_sem;
-dispatch_semaphore_t task_sem;
-bool all_tasks_processed = false;
 queue<parametrosHebra> work_queue;
+pthread_mutex_t queue_mutex;
+pthread_mutex_t cond_mutex;
+pthread_cond_t queue_cond;
+bool all_tasks_processed = false;
 
 // calcular aptitud de semilla con work-queue
 void* hebra_calcular_aptitud_semilla_instancia(void* arg) {
   while (true) {
-    // Esperar a que haya tareas en la cola
-    dispatch_semaphore_wait(queue_sem, DISPATCH_TIME_FOREVER);
 
-    // Bloquear el semáforo para acceso exclusivo a la cola de trabajo
-    dispatch_semaphore_wait(task_sem, DISPATCH_TIME_FOREVER);
+    // Bloquear el mutex para acceso exclusivo a la cola de trabajo
+    pthread_mutex_lock(&queue_mutex);
 
     // Comprobar si todas las tareas han sido procesadas
     if (all_tasks_processed && work_queue.empty()) {
-        // Desbloquear el semáforo y salir del bucle
-        dispatch_semaphore_signal(task_sem);
-        break;
+
+      // Desbloquear el mutex y salir del bucle
+      pthread_mutex_unlock(&queue_mutex);
+      break;
     }
 
-    // Obtener la tarea de la cola
-    parametrosHebra task = work_queue.front();
-    work_queue.pop();
+    // Comprobar si hay tareas en la cola
+    if (!work_queue.empty()) {
 
-    // Desbloquear el semáforo
-    dispatch_semaphore_signal(task_sem);
+      // Obtener la tarea de la cola
+      parametrosHebra task = work_queue.front();
+      work_queue.pop();
 
-    // Realizar la tarea
-    TimePoint start = chrono::high_resolution_clock::now();
+      // Desbloquear el mutex
+      pthread_mutex_unlock(&queue_mutex);
 
-    calibracion *cal_temp = task.cal_temp;
-    const char *instancia = task.ins;
-    int semilla = task.sem;
-    int s = task.i;
+      // Realizamos la tarea
+      TimePoint start1 = chrono::high_resolution_clock::now();
 
-    // nombre archivo
-    char archivo_resultados[1000]; 
-    strcpy (archivo_resultados, "resultados_");
-    snprintf(archivo_resultados + strlen(archivo_resultados), sizeof(archivo_resultados) - strlen(archivo_resultados), "%d", s);
-    strcat(archivo_resultados, ".res"); // Agregar ".res" al final de cada cadena
+      calibracion *cal_temp = task.cal_temp;
+      const char *instancia = task.ins;
+      int semilla = task.sem;
+      int s = task.i;
+
+      // nombre archivo
+      char archivo_resultados[1000]; 
+      strcpy (archivo_resultados, "resultados_");
+      snprintf(archivo_resultados + strlen(archivo_resultados), sizeof(archivo_resultados) - strlen(archivo_resultados), "%d", s);
+      strcat(archivo_resultados, ".res"); // Agregar ".res" al final de cada cadena
+      
+      ifstream resultados;
+
+      char comando[1024];
+      char comando2[1024];
+      float aptitud;
+
+      snprintf(comando, sizeof(comando), "./%s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
   
-    ifstream resultados;
+      for (int i = 0; i < cantidad_parametros; i++) {
+          if (configuracion_parametros[i].decimales > 1)
+              snprintf(comando2, sizeof(comando2), " -%s %.4f", configuracion_parametros[i].nombre, (cal_temp->parametro[i] / ((float)configuracion_parametros[i].decimales)));
+          else
+              snprintf(comando2, sizeof(comando2), " -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
+          
+          strncat(comando, comando2, sizeof(comando) - strlen(comando) - 1);
+      }
+      
+      printf("%s\n", comando);
 
-    char comando[1024];
-    char comando2[1024];
-    float aptitud;
-    
-    // sprintf(comando, "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
-    // for(int i=0; i<cantidad_parametros; i++)
-    // {
-    //   if(configuracion_parametros[i].decimales>1)
-    //     sprintf(comando2," -%s %.4f", configuracion_parametros[i].nombre,(cal_temp->parametro[i]/((float)configuracion_parametros[i].decimales)));
-    //   else
-    //     sprintf(comando2," -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
-    //   strcat(comando, comando2);
-    // }
-    // printf("%s\n", comando);
+      system_bash(comando); // Ejecutamos bash y guardamos aptitud en archivo_resultados
 
-    snprintf(comando, sizeof(comando), "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
-    
-    for (int i = 0; i < cantidad_parametros; i++) {
-        if (configuracion_parametros[i].decimales > 1)
-            snprintf(comando2, sizeof(comando2), " -%s %.4f", configuracion_parametros[i].nombre, (cal_temp->parametro[i] / ((float)configuracion_parametros[i].decimales)));
-        else
-            snprintf(comando2, sizeof(comando2), " -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
-        
-        strncat(comando, comando2, sizeof(comando) - strlen(comando) - 1);
-    }
-    
-    printf("%s\n", comando);
-    system(comando);
+      // Abrimos archivo resultado y guardamos valor de la aptitud obtenida
+      resultados.open(archivo_resultados);
+      resultados>>aptitud;
+      resultados.close();
 
-    system(comando);
-    resultados.open(archivo_resultados);
-    resultados>>aptitud;
-    resultados.close();
+      if(MAX_TIME!=0) //Cuando MAX_TIME==0, no se considera tiempo limite
+        T+=aptitud;
+      printf("Aptitud de (%d): %2f \n", s, aptitud);
 
-    if(MAX_TIME!=0) //Cuando MAX_TIME==0, no se considera tiempo limite
-      T+=aptitud;
-    printf("Aptitud de (%d): %2f \n", s, aptitud);
+      // Seccion critica
+      pthread_mutex_lock(&cond_mutex);
+      cal_temp->aptitud_promedio = (cal_temp-> aptitud_promedio + aptitud); //cond carrera ojo
+      pthread_mutex_unlock(&cond_mutex);
 
-    // Seccion critica
-    dispatch_semaphore_wait(semaforo, DISPATCH_TIME_FOREVER); // bloqueamos
-    cal_temp->aptitud_promedio = (cal_temp-> aptitud_promedio + aptitud);
-    dispatch_semaphore_signal(semaforo);  // liberamos
+      //cal_temp->c_instancias_semillas++;
+      printf("Aptitud Total: %2f (%d)\n", (cal_temp->aptitud_promedio), (s));
 
-    //cal_temp->c_instancias_semillas++;
-    printf("Aptitud Total: %2f (%d)\n", (cal_temp->aptitud_promedio), (s));
+      E++;
+      cout<<"-->Van "<< E <<" evaluaciones ("<< T <<" segundos)"<<endl;
 
-    E++;
-    cout<<"-->Van "<< E <<" evaluaciones ("<< T <<" segundos)"<<endl;
+      TimePoint end1 = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
+      Mcs dur1 = chrono::duration_cast<chrono::microseconds>(end1 - start1); // calcular la duración en microsegundos
+      double dur_sec1 = static_cast<double>(dur1.count()) / 1000000.0; // calcular la duración en segundos
+      cout << "Tiempo de ejecución individual en par" << "(" << s << "): " << dur_sec1 << " segundos" <<endl;
 
-    TimePoint end1 = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-    Mcs dur1 = chrono::duration_cast<chrono::microseconds>(end1 - start); // calcular la duración en microsegundos
-    double dur_sec1 = static_cast<double>(dur1.count()) / 1000000.0; // calcular la duración en segundos
-    cout << "Tiempo de ejecución individual en par: " << dur_sec1 << " segundos" << "(" << s << ")"<<endl;
+      if((MAX_EVAL!=0) && (E>MAX_EVAL)) // Cuando MAX_EVAL==0, no se considera numero de evaluaciones limite
+      {
+        cout<<"MAX_EVAL!: "<<E<<endl;
+        salir();
+      }
 
-    if((MAX_EVAL!=0) && (E>MAX_EVAL)) // Cuando MAX_EVAL==0, no se considera numero de evaluaciones limite
-    {
-      cout<<"MAX_EVAL!: "<<E<<endl;
-      salir();
+      if((MAX_TIME!=0) && (T>MAX_TIME)) //Cuando MAX_TIME==0, no se considera tiempo limite
+      {
+        cout<<"MAX_TIME!: "<<T<<endl;
+        salir();
+      }
     }
 
-    if((MAX_TIME!=0) && (T>MAX_TIME)) //Cuando MAX_TIME==0, no se considera tiempo limite
-    {
-      cout<<"MAX_TIME!: "<<T<<endl;
-      salir();
+    else {
+      // Esperar a que haya tareas en la cola
+      pthread_cond_wait(&queue_cond, &queue_mutex);
+      // Desbloquear el mutex al despertar
+      pthread_mutex_unlock(&queue_mutex);
     }
-
   }
-
   pthread_exit(NULL);
-  
 }
+
 // Funcion paralela para calcular aptitudes con work-queue
 void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
 {
   pthread_t hebras[numWorkers];  
   all_tasks_processed = false;
-  // Tomar el tiempo de inicio
-  TimePoint start = chrono::high_resolution_clock::now();
-  cout << "-----Se inicia iteracion de semillas------" << endl; 
 
-  // Inicializar los semáforos
-  queue_sem = dispatch_semaphore_create(0); // init with value of 0
-  task_sem = dispatch_semaphore_create(1); // init with value of 1
-  semaforo = dispatch_semaphore_create(1); // init with value of 1
+  // Inicializar los mutex y la variable de condición
+  pthread_mutex_init(&queue_mutex, NULL);
+  pthread_mutex_init(&cond_mutex, NULL);
+  pthread_cond_init(&queue_cond, NULL);
 
   // Crear los hilos
   for (int i = 0; i < numWorkers; i++) {
       pthread_create(&hebras[i], NULL, hebra_calcular_aptitud_semilla_instancia, NULL);
   }
 
+  // Tomar el tiempo de inicio
+  TimePoint start = chrono::high_resolution_clock::now();
+  cout << "\n-----Se inicia iteracion de semillas------" << endl; 
 
-  if (NumSeeds > numWorkers){
-    for(int i=0; i< NumSeeds; i++) {
-      // Obtener semilla y instancia
-      int is=int_rand(0,lista_semillas_instancias.size());
-      int sem=lista_semillas_instancias[is].seed;
-      const char *ins = lista_semillas_instancias[is].instance.c_str();
+  for(int i=0; i< NumSeeds; i++) {
+    // Obtener semilla y instancia
+    int is=int_rand(0,lista_semillas_instancias.size());
+    int sem=lista_semillas_instancias[is].seed;
+    const char *ins = lista_semillas_instancias[is].instance.c_str();
 
-      // Inicializar parametros(tarea) de hebra
-      parametrosHebra argumento;
-      argumento.cal_temp = cal_temp;
-      argumento.sem = sem;
-      argumento.ins = ins;
-      argumento.i = i;
+    // Inicializar parametros(tarea) de hebra
+    parametrosHebra argumento;
+    argumento.cal_temp = cal_temp;
+    argumento.sem = sem;
+    argumento.ins = ins;
+    argumento.i = i;
 
-      // Bloquear el semáforo para acceso exclusivo a la cola de trabajo
-      dispatch_semaphore_wait(task_sem, DISPATCH_TIME_FOREVER);
+    // Bloquear el mutex para acceso exclusivo a la cola de trabajo
+    pthread_mutex_lock(&queue_mutex);
 
-      work_queue.push(argumento);
+    work_queue.push(argumento);
 
-      // Desbloquear el semáforo
-      dispatch_semaphore_signal(task_sem);
+    // Despertar a un hilo para procesar la tarea
+    pthread_cond_signal(&queue_cond);
 
-      // Desbloquear el semáforo para indicar la disponibilidad de tareas
-      dispatch_semaphore_signal(queue_sem);
-    }
-
-    // Indicar que todas las tareas han sido procesadas
-    all_tasks_processed = true;
-
-    // Desbloquear el semáforo para que los hilos verifiquen si todas las tareas han sido procesadas
-    for (int i = 0; i < numWorkers; i++) {
-        dispatch_semaphore_signal(queue_sem);
-    }
-
-    // Esperar a que las hebras terminen
-    for (int i = 0; i < numWorkers; i++) {
-        pthread_join(hebras[i], NULL);
-    }
-
-    cal_temp->aptitud_promedio = cal_temp->aptitud_promedio/NumSeeds;
-    // Destruir los semáforos
-    dispatch_release(queue_sem);
-    dispatch_release(task_sem);
-    dispatch_release(semaforo);
-    cout << "-----Todas las tareas han sido procesadas.-----" << endl;
-
-
-    TimePoint end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-    Mcs dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
-    double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
-
-    cout << "Tiempo de ejecución para calcular aptitud en paralelo: " << dur_sec << " segundos" << endl;
-    cout << "Aptitud final: " << cal_temp->aptitud_promedio << endl;
+    // Desbloquear el mutex
+    pthread_mutex_unlock(&queue_mutex);
   }
-  else{
-    for (int j = 0; j < NumSeeds; j++) {
-      // Obtener semilla y instancia
-      int is=int_rand(0,lista_semillas_instancias.size());
-      int sem=lista_semillas_instancias[is].seed;
-      const char *ins = lista_semillas_instancias[is].instance.c_str();
 
-      // Inicializar parametros(tarea) de hebra
-      parametrosHebra argumento;
-      argumento.cal_temp = cal_temp;
-      argumento.sem = sem;
-      argumento.ins = ins;
-      argumento.i = j;
+  // Indicar que todas las tareas han sido procesadas
+  all_tasks_processed = true;
 
-      // Bloquear el semáforo para acceso exclusivo a la cola de trabajo
-      dispatch_semaphore_wait(task_sem, DISPATCH_TIME_FOREVER);
+  // Despertar a todos los hilos para que verifiquen si todas las tareas han sido procesadas
+  pthread_cond_broadcast(&queue_cond);
 
-      work_queue.push(argumento);
-
-      // Desbloquear el semáforo
-      dispatch_semaphore_signal(task_sem);
-
-      // Desbloquear el semáforo para indicar la disponibilidad de tareas
-      dispatch_semaphore_signal(queue_sem);
-    }
-    // Indicar que todas las tareas han sido procesadas
-    all_tasks_processed = true;
-
-    // Aumentar el semáforo para que los hilos verifiquen si todas las tareas han sido procesadas
-    for (int i = 0; i < numWorkers; i++) {
-        dispatch_semaphore_signal(queue_sem);
-    }
-
-    // Esperar a que los hilos terminen
-    for (int i = 0; i < numWorkers; i++) {
-        pthread_join(hebras[i], NULL);
-    }
-    cal_temp->aptitud_promedio = cal_temp->aptitud_promedio/NumSeeds;
-    // Destruir los semáforos
-    dispatch_release(queue_sem);
-    dispatch_release(task_sem);
-    dispatch_release(semaforo);
-    cout << "-----Todas las tareas han sido procesadas.-----" << endl;
-
-    TimePoint end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
-    Mcs dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
-    double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
-
-    cout << "Tiempo de ejecución para calcular aptitud en paralelo: " << dur_sec << " segundos" << endl;
-    cout << "Aptitud final: " << cal_temp->aptitud_promedio << endl;
+  // Esperar a que los hilos terminen
+  for (int i = 0; i < numWorkers; i++) {
+      pthread_join(hebras[i], NULL);
   }
+
+  // Destruir los mutex y la variable de condición
+  pthread_mutex_destroy(&queue_mutex);
+  pthread_cond_destroy(&queue_cond);
+
+  cal_temp->aptitud_promedio = cal_temp->aptitud_promedio/NumSeeds;
+
+
+  cout << "-----Todas las tareas han sido procesadas.-----" << endl;
+
+  TimePoint end = chrono::high_resolution_clock::now(); // tomar el tiempo de finalización
+  Mcs dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
+  double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
+
+  cout << "Tiempo de ejecución para calcular aptitud en paralelo: " << dur_sec << " segundos" << endl;
+  cout << "Aptitud final: " << cal_temp->aptitud_promedio << "\n"<< endl;
+  
 }
 
 
@@ -658,7 +628,7 @@ void calcular_aptitud_calibracion(calibracion *cal_temp)
   else{
     // Tomar el tiempo de inicio
     TimePoint start = chrono::high_resolution_clock::now();
-    cout << "Se inicia iteracion de semillas" << endl; 
+    cout << "\n-----Se inicia iteracion de semillas------" << endl; 
     for(int i=0; i<NumSeeds; i++)
     {
       int is=int_rand(0,lista_semillas_instancias.size());
@@ -676,8 +646,9 @@ void calcular_aptitud_calibracion(calibracion *cal_temp)
     Mcs dur = chrono::duration_cast<chrono::microseconds>(end - start); // calcular la duración en microsegundos
     double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
 
+    cout << "-----Todas las tareas han sido procesadas.-----" << endl;
     cout << "Tiempo de ejecución para calcular aptitud en sec: " << dur_sec << " segundos" << endl;
-    cout << "Aptitud final: " << cal_temp->aptitud_promedio << endl;
+    cout << "Aptitud final: " << cal_temp->aptitud_promedio << "\n" <<endl;
     return;
   }
 }
@@ -911,7 +882,7 @@ void crear_conjunto_inicial(conjunto *co, int tamano){
   tamano = tamano - tamanoi;
   
   if (tamano > 0){
-    //180119
+
     list <int> valores_presentes;
   
     for(int p=0; p<cantidad_parametros; p++){
@@ -1038,8 +1009,8 @@ int contar_instancias_training(char * archivo){
 
 //hebra maestra
 int main(int argc, char *argv[]) {   
-    if (argc != 12) {
-        cerr << "se debe tener 11 parametro y se tiene " << argc << endl;
+    if (argc != 13) {
+        cerr << "se debe tener 12 parametro y se tiene " << argc << endl;
         return 1;
     }
     // Tomar tiempo de inicio    
@@ -1056,6 +1027,8 @@ int main(int argc, char *argv[]) {
     minimizar = atoi(argv[9]);          // 1=minimizar, 0=maximizar
     archivo_candidatas = argv[10];    // archivo de soluciones candidatas inciales 
     isParallel = atoi(argv[11]);       // 1=paralelo, 0=secuencial
+    numCore = atoi(argv[12]);  
+    numWorkers = numCore -1;
 
     cout<<"------------------------------------------------------------------------"<<endl;
     cout<<"---------------------------- INICIALIZACION ----------------------------"<<endl;
