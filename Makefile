@@ -9,7 +9,7 @@ NSeeds=3
 MaxTime=0
 Min=1 #1=minimizar, 0=maximizar
 isParallel = 1 # 1=paralelo | 0= secuencial
-NumCores= 8
+NumCores= 4
 archivo_candidatas=candidatas.config
 
 $(prog): 
