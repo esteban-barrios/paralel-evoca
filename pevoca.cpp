@@ -9,39 +9,45 @@
 #include <list>
 #include <string.h>
 #include <algorithm>
-//#include <semaphore.h>
-//#include <dispatch/dispatch.h>
 #include <limits.h>
 #include <queue>
-//#include <sys/wait.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 using namespace std;
 
-// Structs para EVOCA
+/***************************/
+/**** Struct definition  ***/
+/***************************/
 
-struct configuracion {
+// Struct de configuración
+struct configuracion{
   char nombre[30];
   int limite_minimo, limite_maximo;
   int decimales;
   int t_dominio;
 };
+
+// Struct de semilla/instancia
 struct si{
-  int seed; //id
-  string instance; //nombre
+  int seed; 
+  string instance; 
 };
+
+// Struct de calibración
 class calibracion{
   public:
-  float aptitud_promedio; // Esto considera solo una instancia a sintonizar
+  float aptitud_promedio; 
   vector<int> parametro;
   calibracion();
-  //   calibracion(const calibracion &);
   ~calibracion(){};
   calibracion& operator=(const calibracion &rhs);
   int operator==(const calibracion &rhs) const;
   bool operator<(const calibracion &rhs) const;
   friend ostream& operator<<(ostream &, const calibracion &);
 };
+
+// Struct para conjuntos (vector de calibraciones)
 class conjunto{ 
   public: 
   int id;
@@ -50,6 +56,8 @@ class conjunto{
   void ordenar(void);
   friend ostream& operator<<(ostream &, const conjunto &);
 };
+
+// Struct de la población (vector de conjuntos)
 class tpoblacion{
   public:
   int id;
@@ -58,7 +66,19 @@ class tpoblacion{
   friend ostream& operator<<(ostream &, const tpoblacion &);
 };
 
-// type of chrono lib
+// Struct para pasar valores diferentes a las hebras
+struct parametrosHebra {
+    calibracion *cal_temp;
+    const char* ins;
+    int sem;
+    int i;
+};
+
+/*************************/
+/**** Global variables ***/
+/*************************/
+
+// Definicion de tipos para calcular tiempo con lib chrono
 typedef std::chrono::time_point<std::chrono::high_resolution_clock>  TimePoint;
 typedef std::chrono::microseconds Mcs;
 typedef std::chrono::duration<float> Fsec;
@@ -79,7 +99,8 @@ int CIT;
 TimePoint global_start = chrono::high_resolution_clock::now();
 TimePoint global_end = chrono::high_resolution_clock::now();
 
-// Parametros entregados como argumento
+// Parametros entregados como argumento (makefile)
+
 char* algoritmoObjetivo;      // ejecutable (sh) del algoritmo objetivo
 char* archivo_configuracion;  // dominios iniciales de parametros y precision
 char* archivo_instancias;  // path del directorio donde se encuentran las instancias
@@ -92,43 +113,50 @@ int minimizar;                // 1=minimizar, 0=maximizar
 char* archivo_candidatas;     // archivo de soluciones candidatas inciales 
 int isParallel; // 0: secuencial y 1: paralelo
 
-// Funciones para Structs
+// Parametros para paralelizar EVOCA
+int numCore;  // num de nucleos 
+int numWorkers;  // num de trabajadores
+queue<parametrosHebra> work_queue; 
+pthread_mutex_t queue_mutex;
+pthread_mutex_t cond_mutex;
+pthread_cond_t queue_cond;
+bool all_tasks_processed = false;
 
-calibracion::calibracion()   // Constructor
-{
+
+/*************************/
+/**** Struct functions ***/
+/*************************/
+
+calibracion::calibracion(){
   aptitud_promedio = 0.00;
 }
 
-bool calibracion::operator<(const calibracion &a) const
-{   
+bool calibracion::operator<(const calibracion &a) const{   
   if(a.aptitud_promedio > aptitud_promedio) return 1;
   return 0;
 }
 
-calibracion& calibracion::operator=(const calibracion &a)
-{
+calibracion& calibracion::operator=(const calibracion &a){
   this->aptitud_promedio = a.aptitud_promedio;
   this->parametro = a.parametro;
   return *this;
 }
 
-int calibracion::operator==(const calibracion &a) const
-{
+int calibracion::operator==(const calibracion &a) const{
   if( this->aptitud_promedio != a.aptitud_promedio) return 0;
   return 1;
 }
 
-ostream& operator<<(ostream &output, const calibracion &c)
-{
+ostream& operator<<(ostream &output, const calibracion &c){
   output << "[" << &c << "] ( ";
-  for(int i=0; i<cantidad_parametros; i++)
+  for(int i=0; i<cantidad_parametros; i++){
     output << c.parametro[i] << " ";
+  }
   output << ") ["<< c.aptitud_promedio<<"]"<<endl;
   return output;
 }
 
-void conjunto::vaciar(void)
-{
+void conjunto::vaciar(void){
   int size = cjto.size();
   for(int i=0; i<size; i++){
     cjto[i].parametro.clear();
@@ -136,21 +164,17 @@ void conjunto::vaciar(void)
   cjto.clear();
 }
 
-ostream& operator<<(ostream &output, const conjunto &co)
-{
+ostream& operator<<(ostream &output, const conjunto &co){
   output <<endl<< "--------------Conjunto "<<co.id+1<<" ("<<co.cjto.size()<<")-----------------------"<<endl;
-  if(co.cjto.size()>0)
-  {
-    for (vector<calibracion>::const_iterator ca = co.cjto.begin(); ca!=co.cjto.end(); ++ca)
-    {
+  if(co.cjto.size()>0){
+    for (vector<calibracion>::const_iterator ca = co.cjto.begin(); ca!=co.cjto.end(); ++ca){
       output<<*ca;   
     }
   }
   return output;
 }
 
-void tpoblacion::vaciar(void)
-{
+void tpoblacion::vaciar(void){
   int size = cjt.size();
   for(int i=0; i<size; i++){
     cjt[i].cjto.clear();
@@ -158,47 +182,41 @@ void tpoblacion::vaciar(void)
   cjt.clear();
 }
 
-ostream& operator<<(ostream &output, const tpoblacion &po)
-{
+ostream& operator<<(ostream &output, const tpoblacion &po){
   output << "--------------Poblacion "<<po.id+1<<" ("<<po.cjt.size()<<")----------------------"<<endl;
-  if(po.cjt.size()>0)
-  {
-    for (vector<conjunto>::const_iterator co = po.cjt.begin(); co!=po.cjt.end(); ++co)
-    {
+  if(po.cjt.size()>0){
+    for (vector<conjunto>::const_iterator co = po.cjt.begin(); co!=po.cjt.end(); ++co){
       output<<*co;   
     }
   }
   return output;
 }
 
-// Funciones globales
-int int_rand (int a, int b)
-{ 
-  //drand48() devuelve valores en el intervalo [0.0, 1.0)
+/*************************/
+/**** Global Functions ***/
+/*************************/
+
+// Funcion para retornar valor aleatorio entre a y b
+int int_rand (int a, int b){ 
   int retorno = 0;
-  if (a < b)
-  {
+  if (a < b){
     retorno = (int) ((b - a) * drand48 ());
     retorno = retorno + a;
   }
-  else
-  {
+  else{
     retorno = (int) ((a - b) * drand48 ());
     retorno = retorno + b;
   }
   return retorno;
 }
 
-
-void salir(void)
-{ 
+// Funcion para finalizar imprimir en pantalla información y guardar en EVOCA.params resultado de PEVOCA
+void salir(void){ 
   FILE *archivo;
-  // assigning value to string s
+
   string s = "EVOCA.params";
   const int length = s.length();
-  // declaring character array (+1 for null terminator)
   char* archivo_parametros = new char[length + 1];
-  // copying the contents of the string to char array
   strcpy(archivo_parametros, s.c_str());
 
   if(debug) printf("Archivo_parametros: %s\n", archivo_parametros);
@@ -231,9 +249,11 @@ void salir(void)
 }
 
 
-/*-----------------------------------------------------------------*/
-//Funciones evoca paralelo
+/**************************/
+/**** Parallel Functions ***/
+/**************************/
 
+// Funcion para ejecutar comando bash (sin mutex para sistemas OSX)
 int system_bash(const char* command) {
     pid_t pid = fork();
 
@@ -260,26 +280,7 @@ int system_bash(const char* command) {
         }
     }
 }
-
-// Parametro para indicar el número de hebras que se pueden ejecutar en paralelo
-int numCore; 
-// variables para crear hebras
-int numWorkers;         
-
-// Struct para pasar valores diferentes a las hebras
-struct parametrosHebra {
-    calibracion *cal_temp;
-    const char* ins;
-    int sem;
-    int i;
-};
-
-queue<parametrosHebra> work_queue;
-pthread_mutex_t queue_mutex;
-pthread_mutex_t cond_mutex;
-pthread_cond_t queue_cond;
-bool all_tasks_processed = false;
-
+ 
 // calcular aptitud de semilla con work-queue
 void* hebra_calcular_aptitud_semilla_instancia(void* arg) {
   while (true) {
@@ -463,14 +464,13 @@ void calcular_aptitud_calibracion_paralelo(calibracion *cal_temp)
 }
 
 
-/*-----------------------------------------------------------------*/
+/*************************/
+/**** Secuential functions ***/
+/*************************/
 
 
 
-// Funciones EVOCA secuencial
-
-void agregar_semilla_instancia(vector <si> *lista)
-{
+void agregar_semilla_instancia(vector <si> *lista){
   si si_temp;
   ifstream infile;
   infile.open(archivo_instancias); // open file 
@@ -540,8 +540,7 @@ void leer_archivo_configuracion(void){
 }
 
 
-void calcular_aptitud_semilla_instancia(calibracion *cal_temp, const char* instancia, int semilla, int s)
-{
+void calcular_aptitud_semilla_instancia(calibracion *cal_temp, const char* instancia, int semilla, int s){
 
   ifstream resultados;
   
@@ -556,27 +555,10 @@ void calcular_aptitud_semilla_instancia(calibracion *cal_temp, const char* insta
   char comando2[1024];
   float aptitud;
 
-  //for(int i=0; i< cantidad_parametros; i++)
-  //  cout<<cal_temp->parametro[i]<<" ";
-  //cout<<endl;
 
   fflush(stdout);
-  //sprintf(comando, "rm -rf %s", archivo_resultados);
   snprintf(comando, sizeof(comando), "rm -rf %s", archivo_resultados);
   system(comando);
-
-  // sprintf(comando, "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
-  // for(int i=0; i<cantidad_parametros; i++)
-  // {
-  //   if(configuracion_parametros[i].decimales>1)
-  //     sprintf(comando2," -%s %.4f", configuracion_parametros[i].nombre,(cal_temp->parametro[i]/((float)configuracion_parametros[i].decimales)));
-  //   else
-  //     sprintf(comando2," -%s %d", configuracion_parametros[i].nombre, (int)(cal_temp->parametro[i]));
-  //   strcat(comando, comando2);
-  // }
-
-  // printf("%s\n", comando);
-  // system(comando);
 
   snprintf(comando, sizeof(comando), "bash %s %s %s %d", algoritmoObjetivo, instancia, archivo_resultados, semilla);
   
@@ -600,7 +582,6 @@ void calcular_aptitud_semilla_instancia(calibracion *cal_temp, const char* insta
     T+=aptitud;
 
   cal_temp->aptitud_promedio = (cal_temp->aptitud_promedio*(s) + aptitud)/((s)+1);
-  //cal_temp->c_instancias_semillas++;
   printf("Aptitud Total: %2f (%d)\n", (cal_temp->aptitud_promedio), (s));
   
   E++;
@@ -619,8 +600,7 @@ void calcular_aptitud_semilla_instancia(calibracion *cal_temp, const char* insta
   return;
 }
 
-void calcular_aptitud_calibracion(calibracion *cal_temp)
-{
+void calcular_aptitud_calibracion(calibracion *cal_temp){
   if(isParallel){
     calcular_aptitud_calibracion_paralelo(cal_temp);
     return;
@@ -629,8 +609,7 @@ void calcular_aptitud_calibracion(calibracion *cal_temp)
     // Tomar el tiempo de inicio
     TimePoint start = chrono::high_resolution_clock::now();
     cout << "\n-----Se inicia iteracion de semillas------" << endl; 
-    for(int i=0; i<NumSeeds; i++)
-    {
+    for(int i=0; i<NumSeeds; i++){
       int is=int_rand(0,lista_semillas_instancias.size());
       //cout<<"is: "<<is<<endl;
       int sem=lista_semillas_instancias[is].seed;
@@ -666,17 +645,14 @@ int seleccionar_valor_parametro(conjunto * co, int p, int N){
   return valor;
 }
 
-int seleccionar_valor_parametro_por_ruleta(conjunto * co, float * aptitud_temporal, float total, int p)
-{
+int seleccionar_valor_parametro_por_ruleta(conjunto * co, float * aptitud_temporal, float total, int p){
   float rand=drand48();
   float aptitud_acumulada=0.00;
   int M=co->cjto.size();
     
-  for (int i=0; i<M; i++)
-  {
+  for (int i=0; i<M; i++){
    aptitud_acumulada += (aptitud_temporal[i]/total);
-   if(rand < aptitud_acumulada)
-   {
+   if(rand < aptitud_acumulada){
      int sel=co->cjto[i].parametro[p];
      return sel;
    }
@@ -684,31 +660,26 @@ int seleccionar_valor_parametro_por_ruleta(conjunto * co, float * aptitud_tempor
   return (co->cjto.end())->parametro[p];
 }
 
-float calcular_aptitud_temporal(conjunto * co, float * aptitud_temporal) //Devuelve el total de la aptitud_temporal
-{
+//Devuelve el total de la aptitud_temporal
+float calcular_aptitud_temporal(conjunto * co, float * aptitud_temporal){
   float total=0.00;
   int maximo = co->cjto.back().aptitud_promedio;
   int minimo = co->cjto.front().aptitud_promedio;
   int i=0;
-  //cout<<"Aptitudes Temporales!"<<endl;
-  for (vector<calibracion>::iterator ca = co->cjto.begin (); ca != co->cjto.end (); ++ca)
-  {
+  for (vector<calibracion>::iterator ca = co->cjto.begin (); ca != co->cjto.end (); ++ca){
     //calculo de la aptitud temporal de cada individuo de la poblacion
     if(minimizar==1)
-        aptitud_temporal[i] = minimo + maximo - (ca->aptitud_promedio); 
+      aptitud_temporal[i] = minimo + maximo - (ca->aptitud_promedio); 
     else
-        aptitud_temporal[i] = ca->aptitud_promedio;
+      aptitud_temporal[i] = ca->aptitud_promedio;
     total += aptitud_temporal[i];
-    //cout<<"aptitud_temporal[i]:"<< aptitud_temporal[i]<<endl;
     i++;
   } 
-  //getchar();
   return total;
 }
 
 //Es mejor a que b?
-bool mejor(calibracion a, calibracion b)
-{ 
+bool mejor(calibracion a, calibracion b){ 
   if(minimizar==1)
       if((a.aptitud_promedio) < (b.aptitud_promedio)) return true;
       else return false;
@@ -717,8 +688,7 @@ bool mejor(calibracion a, calibracion b)
       else return false;
 }
 
-void agregar_calibracion_cruzada_y_calibracion_mutada(conjunto * co)
-{
+void agregar_calibracion_cruzada_y_calibracion_mutada(conjunto * co){
   int sel;
   int M=co->cjto.size(); //Conservar el mismo tamaño al final del proceso de transformacion
   poblacion_intermedia.cjto.clear();
@@ -768,26 +738,22 @@ void agregar_calibracion_cruzada_y_calibracion_mutada(conjunto * co)
     if(debug) cout<<"Intento "<< vecino-1<<": Comparando calibracion mutada ("<<calibracion_mutada.aptitud_promedio << ") con calibracion_cruzada (" <<calibracion_cruzada.aptitud_promedio<<")"<<endl;
   }while((!mejor(calibracion_mutada, calibracion_cruzada)) && (vecino < configuracion_parametros[mut].t_dominio));
 
-  if(mejor(calibracion_mutada, calibracion_cruzada))
-  {
+  if(mejor(calibracion_mutada, calibracion_cruzada)){
     poblacion_intermedia.cjto.push_back(calibracion_mutada);
     if(debug){
       cout<<"Agregando calibracion_mutada a la poblacion "<<endl;
       cout<<calibracion_mutada<<endl;
     }
   }
+
   /*****************************************************/
   //copiar los restantes en conjunto_calibraciones_intermedio
 
   int c=poblacion_intermedia.cjto.size();
-  //int tam= co->cjto.size();
   vector <calibracion>::iterator ca=co->cjto.end()-1;
   calibracion aux = *ca;
-  //cout << "calidad de la peor en la pop" << aux.aptitud_promedio << endl;
-  //cout<<calibracion_cruzada<<endl;
-  //cout<<"calidad calibracion cruzada-->" << calibracion_cruzada.aptitud_promedio<<endl;
   CantEvalsDiscardedMut += (vecino-1)*NumSeeds;
-  //cout << "perdimos esta cantidad de evaluaciones:" << (vecino-1)*NumSeeds << endl;
+
   if(minimizar == 1){
       if(aux.aptitud_promedio < calibracion_cruzada.aptitud_promedio) CantEvalsCrossBad += NumSeeds;
   }
@@ -795,7 +761,6 @@ void agregar_calibracion_cruzada_y_calibracion_mutada(conjunto * co)
       if(aux.aptitud_promedio > calibracion_cruzada.aptitud_promedio) CantEvalsCrossBad += NumSeeds;
   }
 
-  //getchar();
   for(vector <calibracion>::iterator ca=co->cjto.begin(); ca!=co->cjto.end(), c<M; ++ca, c++){
    poblacion_intermedia.cjto.push_back(*ca);
   }
@@ -829,9 +794,7 @@ int leer_archivo_candidatas(conjunto *co, int tamano){
   
   FILE *archivo;
   archivo=fopen(archivo_candidatas, "r");
-  
-  //configuracion c_temp;
-  
+    
   for(int j=0; j<candidatas; j++){
     for(int i=0; i< cantidad_parametros; i++){
       if(configuracion_parametros[i].decimales == 1){ // Entero o categorico
@@ -870,7 +833,6 @@ void crear_conjunto_inicial(conjunto *co, int tamano){
     co->cjto.push_back(ca);
   }
   int candidatas;
-  //180119
   //Verificar archivo de configuraciones candidatas
   if( existe_archivo(archivo_candidatas )){
         cout << "Leyendo configuraciones candidatas" << endl;
@@ -916,17 +878,14 @@ void crear_conjunto_inicial(conjunto *co, int tamano){
         else{
             if(debug) cout<<"Parametro: "<<p<<", total_valores: "<<configuracion_parametros[p].t_dominio<<endl;
             for(int c=0; c<tamano; c++){
-                //if(debug) cout<<"Calibracion "<<c<<endl;
                 if(configuracion_parametros[p].decimales > 1){
                     int vi=(configuracion_parametros[p].limite_minimo + c%configuracion_parametros[p].t_dominio);
                     float vd=((float)(max_decimales))/configuracion_parametros[p].decimales;
                     int valor=(int)(vi*vd);
-                    //if(debug) cout<<"Vi: "<< vi << ", Vd: "<<vd<<" Vf: "<<valor<<endl;
                     valores_presentes.push_back(valor);
                 }
                 else{
                     int valor=(configuracion_parametros[p].limite_minimo + c%configuracion_parametros[p].t_dominio);
-                    //if(debug) cout<<"Valor: "<<valor<<endl;
                     valores_presentes.push_back(valor);
                 }
             }
@@ -963,10 +922,8 @@ void crear_conjunto_inicial(conjunto *co, int tamano){
   return;
 }
 
-void transformar(conjunto *co)
-{
+void transformar(conjunto *co){
   sort(co->cjto.begin(), co->cjto.end(), mejor);
-  //co->ordenar();
   if(debug) cout<<*co;
   
   agregar_calibracion_cruzada_y_calibracion_mutada(co);
@@ -998,8 +955,6 @@ int contar_instancias_training(char * archivo){
   infile.open(archivo); // open file 
   while(infile){
     getline(infile,s);
-    //cout<<"Largo linea: "<<s.length()<<endl;
-    //getchar();
     if(s.length()==0) return lineas;
     else lineas++;
   }
@@ -1027,8 +982,8 @@ int main(int argc, char *argv[]) {
     minimizar = atoi(argv[9]);          // 1=minimizar, 0=maximizar
     archivo_candidatas = argv[10];    // archivo de soluciones candidatas inciales 
     isParallel = atoi(argv[11]);       // 1=paralelo, 0=secuencial
-    numCore = atoi(argv[12]);  
-    numWorkers = numCore -1;
+    numCore = atoi(argv[12]);           // num de nucleos
+    numWorkers = numCore -1;            // num de hebras a crear para paralelización
 
     cout<<"------------------------------------------------------------------------"<<endl;
     cout<<"---------------------------- INICIALIZACION ----------------------------"<<endl;
@@ -1057,10 +1012,9 @@ int main(int argc, char *argv[]) {
 
     //inicializar población
     crear_conjunto_inicial(&poblacion, Popsize);
-
-
     if(debug) cout<<poblacion;
 
+    // Ejecutar Evoca
     for(I = 0; I < MAX_ITER; I++){
       cout<<"------------------------------------------------------------------------"<<endl;
       cout<<"----------------- ITERACION : "<< I <<" -------------------------------------"<<endl;
@@ -1069,9 +1023,10 @@ int main(int argc, char *argv[]) {
       cout<<"------------------------------------------------------------------------"<<endl;
       transformar(&poblacion);
     }
+
+    // Finalizar
     cout<<"Max Iteraciones!"<<I<<endl;
-    
-    
     salir();
+
     return 0; 
 }

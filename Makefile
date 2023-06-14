@@ -13,7 +13,7 @@ prog = pevoca
 archivo_configuracion = config/conf-AK.config
 archivo_candidatas = config/candidatas.config
 directorio = config/instancias.config
-ejecutable = algoritmo_objetivo/AntKnapsack/AK_OSX.sh
+ejecutable = algoritmo_objetivo/AntKnapsack/AK_Linux.sh
 
 $(prog): 
 	g++ -Wall pevoca.cpp -o pevoca -pthread
