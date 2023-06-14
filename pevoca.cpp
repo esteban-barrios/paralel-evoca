@@ -244,6 +244,9 @@ void salir(void){
   Mcs dur= chrono::duration_cast<chrono::microseconds>(global_end - global_start); // calcular la duración en microsegundos
   double dur_sec = static_cast<double>(dur.count()) / 1000000.0; // calcular la duración en segundos
   cout << "Tiempo de Total de Ejecucion: " << dur_sec << " segundos" << endl;
+
+  delete [] archivo_parametros; // free memory
+
   exit(0);
   return;
 }
@@ -536,6 +539,9 @@ void leer_archivo_configuracion(void){
   fscanf(archivo, "%d", &max_decimales);
   fclose(archivo);
   if(debug) printf("leer_archivo_configuracion done!\n");
+
+  delete [] configuracion_parametros;
+  
   return;
 }
 

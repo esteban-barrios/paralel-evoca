@@ -1,7 +1,7 @@
 # Parameters
 semilla = 123 # semilla para números aleatorios
 MaxM = 10 # núm max de la población
-MaxEval = 20 # núm max de evaluaciones
+MaxEval = 100 # núm max de evaluaciones
 NSeeds = 3 # cantidad de semillas/instancias requeridas para calcular aptitudes
 MaxTime = 0 # núm max de tiempo (0 implica considerar solo max eval)
 Min = 1 # 1=minimizar | 0=maximizar

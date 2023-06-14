@@ -42,3 +42,6 @@ EVOCA.params
 
 # Target algorithm results
 *.res
+
+# Test result
+*.out.*
