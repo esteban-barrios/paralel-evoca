@@ -45,3 +45,6 @@ EVOCA.params
 
 # Test result
 *.out.*
+
+# PEVOCA bin
+PEVOCA
