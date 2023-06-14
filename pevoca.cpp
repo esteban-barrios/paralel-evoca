@@ -262,7 +262,7 @@ int system_bash(const char* command) {
 }
 
 // Parametro para indicar el número de hebras que se pueden ejecutar en paralelo
-int numCore; //default 
+int numCore; 
 // variables para crear hebras
 int numWorkers;         
 

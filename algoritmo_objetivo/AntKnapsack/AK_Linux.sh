@@ -56,6 +56,6 @@ done
 rm -rf ${outfile}
 
 
-echo "./AntKnapsack_Linux ${bench} ${seed} ${TotalAnts} ${TotalEvaluations} ${alpha} ${beta} ${ph_max} ${ph_min} ${rho} >> ${outfile}"
-./AntKnapsack_Linux ${bench} ${seed} ${TotalAnts} ${TotalEvaluations} ${alpha} ${beta} ${ph_max} ${ph_min} ${rho} >> ${outfile}
+#echo "./AntKnapsack_Linux ${bench} ${seed} ${TotalAnts} ${TotalEvaluations} ${alpha} ${beta} ${ph_max} ${ph_min} ${rho} >> ${outfile}"
+./algoritmo_objetivo/AntKnapsack/AntKnapsack_Linux ${bench} ${seed} ${TotalAnts} ${TotalEvaluations} ${alpha} ${beta} ${ph_max} ${ph_min} ${rho} >> ${outfile}
 #done

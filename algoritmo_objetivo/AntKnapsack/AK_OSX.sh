@@ -57,5 +57,5 @@ rm -rf ${outfile}
 
 
 #echo "./AntKnapsack_OSX ${bench} ${seed} ${TotalAnts} ${TotalEvaluations} ${alpha} ${beta} ${ph_max} ${ph_min} ${rho} >> ${outfile}"
-./AntKnapsack_OSX ${bench} ${seed} ${TotalAnts} ${TotalEvaluations} ${alpha} ${beta} ${ph_max} ${ph_min} ${rho} >> ${outfile}
+./algoritmo_objetivo/AntKnapsack/AntKnapsack_OSX ${bench} ${seed} ${TotalAnts} ${TotalEvaluations} ${alpha} ${beta} ${ph_max} ${ph_min} ${rho} >> ${outfile}
 #done
