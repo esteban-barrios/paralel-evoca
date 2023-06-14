@@ -1,11 +1,14 @@
-semilla = 123
-MaxM = 10
-MaxEval = 20
-NSeeds = 3
-MaxTime = 0
-Min = 1 #1=minimizar, 0=maximizar
+# Parameters
+semilla = 123 # semilla para números aleatorios
+MaxM = 10 # núm max de la población
+MaxEval = 20 # núm max de evaluaciones
+NSeeds = 3 # cantidad de semillas/instancias requeridas para calcular aptitudes
+MaxTime = 0 # núm max de tiempo (0 implica considerar solo max eval)
+Min = 1 # 1=minimizar | 0=maximizar
 isParallel = 1 # 1=paralelo | 0= secuencial
-NumCores = 4
+NumCores = 4 # núm de nucleos a utilizar (considerar max el número de nucleos del procesador para evitar problemas)
+
+# Config
 prog = pevoca
 archivo_configuracion = config/conf-AK.config
 archivo_candidatas = config/candidatas.config

@@ -36,3 +36,9 @@
 
 # Text files
 *.txt
+
+# PEVOCA Result
+EVOCA.params
+
+# Target algorithm results
+*.res
